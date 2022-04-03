@@ -1,85 +1,75 @@
 package main
 
 import (
+	"discraft/collection"
+	"discraft/discord"
+	"discraft/minecraft"
 	"fmt"
-	"github.com/alteamc/minequery/ping"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
+	"strings"
 	"time"
 )
 
-func grabEnvConfiguration() (discordWebhookURL string, minecraftHost string, minecraftPort uint16) {
-	discordWebhookURL, ok := os.LookupEnv("DISCORD_WEBHOOK_URL")
+func requireEnvVariable(key string) string {
+	value, ok := os.LookupEnv(key)
 	if !ok {
-		panic("DISCORD_WEBHOOK_URL is mandatory")
+		panic(fmt.Sprintf("%s is mandatory", key))
 	}
 
-	minecraftHost, ok = os.LookupEnv("MINECRAFT_HOST")
-	if !ok {
-		panic("MINECRAFT_HOST is mandatory")
-	}
+	return value
+}
 
-	minecraftPortStr, ok := os.LookupEnv("MINECRAFT_PORT")
-	if !ok {
-		panic("MINECRAFT_PORT is mandatory")
-	}
-
-	minecraftPort64, err := strconv.ParseUint(minecraftPortStr, 10, 16)
+func stringToURL(s string) url.URL {
+	u, err := url.Parse(s)
 	if err != nil {
-		panic("MINECRAFT_PORT is not valid")
+		panic(fmt.Sprintf("'%s' is not a valid URL", s))
 	}
 
-	minecraftPort = uint16(minecraftPort64)
+	return *u
+}
 
-	return
+func stringToMinecraftServerURL(s string) url.URL {
+	if !strings.Contains(s, "//") {
+		s = "//" + s
+	}
+
+	u := stringToURL(s)
+	if u.Port() == "" {
+		u.Host = u.Host + ":25565"
+	}
+
+	return u
 }
 
 func main() {
-	discordWebhookURL, minecraftHost, minecraftPort := grabEnvConfiguration()
+	discordWebhookURL := stringToURL(requireEnvVariable("DISCORD_WEBHOOK_URL"))
+	minecraftServerUrl := stringToURL(requireEnvVariable("MINECRAFT_SERVER_URL"))
 
-	var lastPlayers *stringList
-	client := http.Client{}
+	discordServer := discord.Server{
+		Client:  http.Client{},
+		Webhook: discordWebhookURL,
+	}
+	minecraftServer := minecraft.NewServerFromURL(minecraftServerUrl)
+
+	var lastPlayers *collection.Strings
 	ticker := time.NewTicker(1 * time.Minute)
 	for {
-		log.Printf("Pinging %s:%d...", minecraftHost, minecraftPort)
-		res, err := ping.Ping(minecraftHost, minecraftPort)
-		if err != nil {
-			panic(err)
-		}
-		log.Printf("Ping OK: %v", res)
-
-		currentPlayers := newStringListFromPlayerNames(*res)
+		currentPlayers := minecraftServer.CurrentPlayerList()
 		if lastPlayers == nil {
 			lastPlayers = &currentPlayers
 		}
 
-		newPlayers := currentPlayers.diff(*lastPlayers)
-		oldPlayers := lastPlayers.diff(currentPlayers)
-		content := ""
+		newPlayers := currentPlayers.Diff(*lastPlayers)
+		oldPlayers := lastPlayers.Diff(currentPlayers)
 
-		if len(newPlayers) > 0 {
-			content = fmt.Sprintf("%v entered, now standing: %v", newPlayers, currentPlayers)
+		for _, player := range newPlayers {
+			discordServer.SendMessage(fmt.Sprintf("%s has entered. Currently playing: %v", player, currentPlayers))
 		}
 
-		if len(oldPlayers) > 0 {
-			content = fmt.Sprintf("%v left, currently standing: %v", oldPlayers, currentPlayers)
-		}
-
-		if content != "" {
-			log.Printf("Posting '%s' to discord...", content)
-			resp, err := client.PostForm(
-				discordWebhookURL,
-				url.Values{
-					"content": {content},
-				},
-			)
-			err = resp.Body.Close()
-			if err != nil {
-				panic(err)
-			}
+		for _, player := range oldPlayers {
+			discordServer.SendMessage(fmt.Sprintf("%s left. Currently playing: %v", player, currentPlayers))
 		}
 
 		lastPlayers = &currentPlayers
