@@ -45,7 +45,7 @@ func stringToMinecraftServerURL(s string) url.URL {
 
 func main() {
 	discordWebhookURL := stringToURL(requireEnvVariable("DISCORD_WEBHOOK_URL"))
-	minecraftServerUrl := stringToURL(requireEnvVariable("MINECRAFT_SERVER_URL"))
+	minecraftServerUrl := stringToMinecraftServerURL(requireEnvVariable("MINECRAFT_SERVER_URL"))
 
 	discordServer := discord.Server{
 		Client:  http.Client{},
