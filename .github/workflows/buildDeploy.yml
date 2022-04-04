@@ -34,12 +34,14 @@ jobs:
     steps:
     - name: Set Key
       run: mkdir ~/.ssh && echo "${{env.KEY}}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa 
+    - name: Stop Service
+      run: ssh -o StrictHostKeyChecking=accept-new -p 500 discraft@minecraft.sneakyrogue.red 'systemctl --user stop discraft.service'
     - name: Download a single artifact
       uses: actions/download-artifact@v3
       with:
         name: discraftbin
         path: ~/
     - name: Upload
-      run: "scp -o StrictHostKeyChecking=accept-new -P 500 ~/discraft discraft@minecraft.sneakyrogue.red:"
+      run: "scp -P 500 ~/discraft discraft@minecraft.sneakyrogue.red:"
     - name: Restart Service
-      run: ssh -v -p 500 discraft@minecraft.sneakyrogue.red 'systemctl --user restart discraft.service'
+      run: ssh -p 500 discraft@minecraft.sneakyrogue.red 'systemctl --user start discraft.service'
