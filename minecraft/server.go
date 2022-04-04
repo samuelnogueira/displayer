@@ -27,13 +27,16 @@ func NewServerFromURL(u url.URL) Server {
 }
 
 func (s Server) CurrentPlayerList() collection.Strings {
-	res, err := ping.Ping(s.Hostname, s.Port)
-	if err != nil {
-		panic(err)
-	}
-	log.Printf("%s:%d ping OK: %v", s.Hostname, s.Port, res)
+	names := collection.Strings{}
 
-	var names collection.Strings
+	res, err := ping.PingWithTimeout(s.Hostname, s.Port, 10)
+	if err != nil {
+		log.Printf("%s:%d ping FAILED: %v", s.Hostname, s.Port, err)
+
+		return names
+	}
+	log.Printf("%s:%d ping ok: %v", s.Hostname, s.Port, res)
+
 	for _, p := range res.Players.Sample {
 		names = append(names, p.Name)
 	}
