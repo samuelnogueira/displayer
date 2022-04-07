@@ -29,7 +29,7 @@ func NewServerFromURL(u url.URL) Server {
 func (s Server) CurrentPlayerList() collection.Strings {
 	names := collection.Strings{}
 
-	res, err := ping.PingWithTimeout(s.Hostname, s.Port, 10)
+	res, err := ping.PingWithTimeout(s.Hostname, s.Port, 200)
 	if err != nil {
 		log.Printf("%s:%d ping FAILED: %v", s.Hostname, s.Port, err)
 
