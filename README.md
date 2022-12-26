@@ -1,4 +1,3 @@
-# discraft
 Janky Discord bot to notify players entering/leaving multiplayer servers.
 
 Currently offers support for:
